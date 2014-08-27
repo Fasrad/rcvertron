@@ -31,6 +31,8 @@ PWM is output on PD6 at ~8kHz.
 void delay(uint16_t);
 void blink (uint8_t);
 
+volatile uint16_t capture_val;
+
 int main(){
 
     DDRB=0xFE;
@@ -38,31 +40,21 @@ int main(){
 
     //set up timer1 for input capture to read RC signals
     TCCR1B = (1<<CS11);        //clk/8 = 2MHz
-    TIMSK1|=1<<ICE1;           //enable input capture interrupt
+    TIMSK1|=1<<ICIE1;           //enable input capture interrupt
 
     //set up pwm timer0
     TCCR0A = 0b10100011;       //fast pwm, page 103
     TCCR0B |= 1<<CS01;                //fcpu / 8 = ~8khz PWM
 
-    uint16_t capture_val;
+//    volatile extern uint16_t capture_val;
     uint8_t ledcnt;
-
-    ISR(0x0014){
-        if(TCCR1B&(1<<ICES)){         //1 is rising edge;
-            TCNT1=0;
-            TCCR1B&=~(1<<ICES);       //switch to falling
-        }else{
-            capture_val=ICP1;
-            TCCR1B|=(1<<ICES);        //set back to rising edge
-        }
-    }
 
     /****************************************
     *****main loop***************************
     ****************************************/
     for(;;){  
         
-        if(TIFR1&1<<TOVF1){
+        if(TIFR1&1<<TOV1){
             PORTB|=1<<5;          //turn on LED if timer has overflowed
         }
 
@@ -80,7 +72,19 @@ int main(){
         OCR0A=capture_val<<3;           //map to PWM
 
         ledcnt++;                       //reset warningLEDs
-        if(!ledcnt){PORTB=0};  //ok with PB0 as input??
+        if(!ledcnt){PORTB=0;}  //ok with PB0 as input??
 
     } //infty
 }//main
+
+ISR(TIMER1_CAPT_vect){
+    if(TCCR1B&(1<<ICES1)){         //1 is rising edge;
+        TCNT1=0;
+        TCCR1B&=~(1<<ICES1);       //switch to falling
+    }else{
+        capture_val=ICR1;
+        TCCR1B|=(1<<ICES1);        //set back to rising edge
+    }
+}
+
+
